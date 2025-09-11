@@ -16,6 +16,7 @@ interface LayoutProps {
   children: React.ReactNode;
   currentView: 'generation' | 'calendar' | 'review';
   onViewChange: (view: 'generation' | 'calendar' | 'review') => void;
+  onSignOut?: () => void;
 }
 
 const platforms = [
@@ -24,7 +25,7 @@ const platforms = [
 
 ];
 
-export function Layout({ children, currentView, onViewChange }: LayoutProps) {
+export function Layout({ children, currentView, onViewChange, onSignOut }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -68,7 +69,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
                   Configurações
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={onSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>

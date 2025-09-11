@@ -13,6 +13,8 @@ export interface ContentGenerationRequest {
   format: 'video_script' | 'carousel' | 'email_newsletter';
   tone?: string;
   targetAudience?: string;
+  carouselSlides?: number;
+  videoDuration?: number;
 }
 
 export interface ContentGenerationResponse {
@@ -36,19 +38,26 @@ const platformPrompts: Record<Platform, Record<string, { system: string; format:
   instagram: {
     video_script: {
       system: `Você é um especialista em criação de roteiros para vídeos e reels do Instagram. Crie roteiros envolventes, dinâmicos e que capturem a atenção nos primeiros 3 segundos.
-      Use storytelling visual, elementos de suspense, transições criativas e call-to-actions claros. Foque em engajamento e retenção de audiência.`,
-      format: 'Roteiro detalhado para vídeo/reel do Instagram com timing, cenas e diálogos'
+      Use storytelling visual, elementos de suspense, transições criativas e call-to-actions claros. Foque em engajamento e retenção de audiência.
+      
+      IMPORTANTE:
+      - Crie um roteiro que se ajuste exatamente à duração especificada
+      - Para vídeos curtos (15-30s): foco em uma ideia principal, ritmo acelerado
+      - Para vídeos médios (45-90s): desenvolvimento da história, transições suaves
+      - Para vídeos longos (120s+): narrativa completa, desenvolvimento de personagens
+      - Sempre inclua timing preciso para cada cena`,
+      format: 'Roteiro detalhado para vídeo/reel do Instagram com timing preciso, cenas e diálogos ajustados à duração especificada'
     },
     carousel: {
       system: `Você é um especialista em criação de carrosséis para Instagram. Crie conteúdo educativo, inspiracional ou informativo que funcione perfeitamente em formato de slides.
       Use storytelling sequencial, dicas práticas, dados visuais e elementos que incentivem o swipe. Foque em valor agregado e engajamento.
       
       IMPORTANTE: 
-      - Máximo 8 slides para evitar respostas muito longas
+      - Crie exatamente a quantidade de slides solicitada pelo usuário
       - Para cada slide, forneça uma descrição visual concisa (máximo 2 linhas)
       - Descrição deve incluir: elementos principais, cores, estilo e atmosfera
       - Seja específico mas conciso nas descrições`,
-      format: 'Conteúdo para carrossel do Instagram com até 8 slides, cada um com texto e descrição visual concisa para geração de imagem'
+      format: 'Conteúdo para carrossel do Instagram com a quantidade de slides especificada, cada um com texto e descrição visual concisa para geração de imagem'
     }
   },
   email: {
@@ -59,6 +68,32 @@ const platformPrompts: Record<Platform, Record<string, { system: string; format:
     }
   }
 };
+
+// Função para retry com backoff exponencial
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      // Se for erro 429 (Too Many Requests) e ainda temos tentativas
+      if (error.status === 429 && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+        console.log(`Tentativa ${attempt + 1} falhou com 429. Aguardando ${Math.round(delay)}ms antes de tentar novamente...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      // Se não for erro 429 ou esgotaram as tentativas, relança o erro
+      throw error;
+    }
+  }
+  
+  throw new Error('Máximo de tentativas excedido');
+}
 
 // Função para reparar JSONs incompletos
 function repairIncompleteJSON(jsonString: string): string {
@@ -114,6 +149,11 @@ export async function generateContent(request: ContentGenerationRequest): Promis
           "time": "0:00 - 0:03",
           "scene": "Descrição da cena visual",
           "dialogue": "Texto que será falado"
+        },
+        {
+          "time": "0:03 - 0:08",
+          "scene": "Próxima cena",
+          "dialogue": "Continuação do diálogo"
         }
       ],
       "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
@@ -150,29 +190,34 @@ export async function generateContent(request: ContentGenerationRequest): Promis
     Formato: ${request.format}
     ${request.tone ? `Tom: ${request.tone}` : ''}
     ${request.targetAudience ? `Público-alvo: ${request.targetAudience}` : ''}
+    ${request.format === 'carousel' && request.carouselSlides ? `Quantidade de slides: ${request.carouselSlides}` : ''}
+    ${request.format === 'video_script' && request.videoDuration ? `Duração do vídeo: ${request.videoDuration} segundos` : ''}
     
     Certifique-se de que o conteúdo seja:
     - Otimizado para ${request.platform} no formato ${request.format}
     - Engajante e relevante
     - Com hashtags apropriadas (se aplicável)
     - Com métricas realistas de performance
-    ${request.format === 'carousel' ? '- Máximo 8 slides com descrições visuais concisas' : ''}`;
+    ${request.format === 'carousel' ? `- Exatamente ${request.carouselSlides || 6} slides com descrições visuais concisas` : ''}
+    ${request.format === 'video_script' ? `- Roteiro ajustado para exatamente ${request.videoDuration || 30} segundos com timing preciso` : ''}`;
 
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_CONFIG.model,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ],
-      max_tokens: request.format === 'carousel' ? 3000 : OPENAI_CONFIG.maxTokens, // Mais tokens para carrossel
-      temperature: OPENAI_CONFIG.temperature,
-      response_format: { type: "json_object" }
+    const completion = await retryWithBackoff(async () => {
+      return await openai.chat.completions.create({
+        model: OPENAI_CONFIG.model,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ],
+        max_tokens: request.format === 'carousel' ? 3000 : OPENAI_CONFIG.maxTokens, // Mais tokens para carrossel
+        temperature: OPENAI_CONFIG.temperature,
+        response_format: { type: "json_object" }
+      });
     });
 
     const response = completion.choices[0]?.message?.content;
@@ -210,8 +255,22 @@ export async function generateContent(request: ContentGenerationRequest): Promis
     }
     
     return parsedResponse;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao gerar conteúdo com OpenAI:', error);
+    
+    // Tratamento específico para diferentes tipos de erro
+    if (error.status === 429) {
+      throw new Error('Limite de requisições da OpenAI atingido. Aguarde alguns minutos e tente novamente.');
+    } else if (error.status === 401) {
+      throw new Error('Chave da API da OpenAI inválida. Verifique suas configurações.');
+    } else if (error.status === 403) {
+      throw new Error('Acesso negado à API da OpenAI. Verifique suas permissões.');
+    } else if (error.status === 500) {
+      throw new Error('Erro interno da OpenAI. Tente novamente em alguns minutos.');
+    } else if (error.message?.includes('Máximo de tentativas excedido')) {
+      throw new Error('Muitas tentativas falharam. Aguarde alguns minutos e tente novamente.');
+    }
+    
     throw new Error('Falha ao gerar conteúdo. Tente novamente.');
   }
 }
@@ -238,20 +297,22 @@ export async function optimizeContent(
       conversion: 'Otimize este conteúdo para maximizar conversões e ações desejadas'
     };
 
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_CONFIG.model,
-      messages: [
-        {
-          role: 'system',
-          content: `Você é um especialista em otimização de conteúdo para ${platform}. ${optimizationPrompts[optimizationType]}.`
-        },
-        {
-          role: 'user',
-          content: `Otimize este conteúdo para ${platform}:\n\n${content}`
-        }
-      ],
-      max_tokens: OPENAI_CONFIG.maxTokens,
-      temperature: OPENAI_CONFIG.temperature
+    const completion = await retryWithBackoff(async () => {
+      return await openai.chat.completions.create({
+        model: OPENAI_CONFIG.model,
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um especialista em otimização de conteúdo para ${platform}. ${optimizationPrompts[optimizationType]}.`
+          },
+          {
+            role: 'user',
+            content: `Otimize este conteúdo para ${platform}:\n\n${content}`
+          }
+        ],
+        max_tokens: OPENAI_CONFIG.maxTokens,
+        temperature: OPENAI_CONFIG.temperature
+      });
     });
 
     return completion.choices[0]?.message?.content || content;

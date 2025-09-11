@@ -33,14 +33,20 @@ const platformIcons: Record<string, any> = {
 
 interface StrategicCalendarProps {
   approvedContent: Content[];
+  allContents?: Content[]; // Adicionar todos os conteúdos para debug
   onScheduleContent: (contentId: string, date: Date) => void;
+  onUnscheduleContent: (contentId: string) => void;
 }
 
-export function StrategicCalendar({ approvedContent, onScheduleContent }: StrategicCalendarProps) {
+export function StrategicCalendar({ approvedContent, allContents, onScheduleContent, onUnscheduleContent }: StrategicCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [calendarView, setCalendarView] = useState<'general' | 'platform'>('general');
+
+  // Debug: verificar conteúdos recebidos
+  console.log('StrategicCalendar - Conteúdos aprovados recebidos:', approvedContent.length);
+  console.log('StrategicCalendar - Detalhes dos conteúdos:', approvedContent.map(c => ({ id: c.id, title: c.title, status: c.status, platform: c.platform })));
 
   const handleSchedule = (contentId: string) => {
     if (selectedDate) {
@@ -58,16 +64,39 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
   };
 
   const getContentForDate = (date: Date, platform?: Platform | 'all') => {
-    return scheduledPosts.filter(post => {
+    // Incluir posts agendados da tabela scheduled_posts
+    const scheduledFromTable = scheduledPosts.filter(post => {
       const isDateMatch = post.scheduledFor.toDateString() === date.toDateString();
       const isPlatformMatch = platform === 'all' || !platform ? true : post.platform === platform;
       return isDateMatch && isPlatformMatch;
     });
+
+    // Também incluir conteúdos com status 'scheduled' que têm scheduledFor definido
+    const scheduledFromContent = approvedContent.filter(content => {
+      if (content.status !== 'scheduled' || !content.scheduledFor) return false;
+      const isDateMatch = content.scheduledFor.toDateString() === date.toDateString();
+      const isPlatformMatch = platform === 'all' || !platform ? true : content.platform === platform;
+      return isDateMatch && isPlatformMatch;
+    });
+
+    // Converter conteúdos agendados para o formato de ScheduledPost
+    const scheduledFromContentAsPosts = scheduledFromContent.map(content => ({
+      id: `content-${content.id}`,
+      contentId: content.id,
+      platform: content.platform,
+      scheduledFor: content.scheduledFor!,
+      status: 'scheduled' as const,
+      createdAt: content.createdAt
+    }));
+
+    return [...scheduledFromTable, ...scheduledFromContentAsPosts];
   };
 
   const getApprovedContentForDate = (_date: Date, platform?: Platform | 'all') => {
     return approvedContent.filter(content => {
-      const isNotScheduled = !scheduledPosts.some(post => post.contentId === content.id);
+      // Incluir apenas conteúdos que NÃO estão agendados
+      // (status 'approved', 'generated', 'draft' ou 'scheduled' sem data específica)
+      const isNotScheduled = content.status !== 'scheduled' || !content.scheduledFor;
       const isPlatformMatch = platform === 'all' || !platform ? true : content.platform === platform;
       return isNotScheduled && isPlatformMatch;
     });
@@ -92,6 +121,31 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
 
   return (
     <div className="space-y-6">
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h3 className="font-semibold text-yellow-800 mb-2">Debug Info</h3>
+          <div className="text-sm text-yellow-700 space-y-1">
+            <p>Total de conteúdos recebidos: {approvedContent.length}</p>
+            <p>Conteúdos por status:</p>
+            <ul className="ml-4">
+              {allContents && Object.entries(allContents.reduce((acc, content) => {
+                acc[content.status] = (acc[content.status] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>)).map(([status, count]) => (
+                <li key={status}>- {status}: {count}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs">
+              Conteúdos agendados: {approvedContent.filter(c => c.status === 'scheduled').length}
+            </p>
+            <p className="text-xs">
+              Conteúdos disponíveis: {approvedContent.filter(c => c.status !== 'scheduled').length}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -107,6 +161,27 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
             <Plus className="h-4 w-4 mr-2" />
             Nova Publicação
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => {
+                // Criar conteúdo de teste
+                const testContent = {
+                  title: 'Conteúdo de Teste',
+                  content: 'Este é um conteúdo de teste para verificar se está funcionando.',
+                  platform: 'instagram' as Platform,
+                  format: 'video_script' as any,
+                  status: 'approved' as any,
+                  agentId: null,
+                  prompt: 'Teste'
+                };
+                console.log('Criando conteúdo de teste:', testContent);
+              }}
+            >
+              Teste
+            </Button>
+          )}
         </div>
       </div>
 
@@ -336,15 +411,29 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
                           {getContentForDate(selectedDate, calendarView === 'platform' ? selectedPlatform : undefined).map((post) => {
                             const content = approvedContent.find(c => c.id === post.contentId);
                             return content ? (
-                              <div key={post.id} className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg">
-                                <PlatformIcon platform={content.platform} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{content.title}</p>
-                                  <p className="text-xs text-muted-foreground">{content.platform}</p>
+                              <div key={post.id} className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div className="flex-shrink-0">
+                                    <PlatformIcon platform={content.platform} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">{content.title}</p>
+                                    <p className="text-xs text-gray-500 capitalize">{content.platform}</p>
+                                  </div>
                                 </div>
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                  Agendado
-                                </Badge>
+                                <div className="flex items-center justify-end space-x-2">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                                    Agendado
+                                  </Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => onUnscheduleContent(content.id)}
+                                    className="text-xs h-7 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                                  >
+                                    Desagendar
+                                  </Button>
+                                </div>
                               </div>
                             ) : null;
                           })}
@@ -369,20 +458,26 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
                       {getApprovedContentForDate(selectedDate, calendarView === 'platform' ? selectedPlatform : undefined).length > 0 ? (
                         <div className="space-y-2">
                           {getApprovedContentForDate(selectedDate, calendarView === 'platform' ? selectedPlatform : undefined).slice(0, 3).map((content) => (
-                            <div key={content.id} className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">
-                              <PlatformIcon platform={content.platform} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{content.title}</p>
-                                <p className="text-xs text-muted-foreground">{content.platform}</p>
+                            <div key={content.id} className="p-3 bg-green-50 rounded-lg border border-green-100">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="flex-shrink-0">
+                                  <PlatformIcon platform={content.platform} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{content.title}</p>
+                                  <p className="text-xs text-gray-500 capitalize">{content.platform}</p>
+                                </div>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleSchedule(content.id)}
-                                className="text-xs"
-                              >
-                                Agendar
-                              </Button>
+                              <div className="flex items-center justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleSchedule(content.id)}
+                                  className="text-xs h-7 px-3 border-green-200 text-green-600 hover:bg-green-100 hover:border-green-300"
+                                >
+                                  Agendar
+                                </Button>
+                              </div>
                             </div>
                           ))}
                           {getApprovedContentForDate(selectedDate, calendarView === 'platform' ? selectedPlatform : undefined).length > 3 && (
@@ -392,7 +487,12 @@ export function StrategicCalendar({ approvedContent, onScheduleContent }: Strate
                           )}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">Nenhum conteúdo disponível</p>
+                        <div className="text-center py-4">
+                          <p className="text-sm text-muted-foreground">Nenhum conteúdo disponível</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Total de conteúdos aprovados: {approvedContent.length}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </>

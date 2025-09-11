@@ -53,6 +53,8 @@ export function ContentGeneration({ onContentApproved }: ContentGenerationProps)
   const [error, setError] = useState<string | null>(null);
   const [tone, setTone] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
+  const [carouselSlides, setCarouselSlides] = useState(6); // Quantidade de slides do carrossel
+  const [videoDuration, setVideoDuration] = useState(30); // Duração do vídeo em segundos
   const [isCreatingCanva, setIsCreatingCanva] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
@@ -95,6 +97,8 @@ export function ContentGeneration({ onContentApproved }: ContentGenerationProps)
         format: selectedFormat,
         tone: tone || undefined,
         targetAudience: targetAudience || undefined,
+        carouselSlides: selectedFormat === 'carousel' ? carouselSlides : undefined,
+        videoDuration: selectedFormat === 'video_script' ? videoDuration : undefined,
       });
       
       // Formatar conteúdo baseado no tipo
@@ -158,7 +162,7 @@ ${aiResponse.callToAction ? `\n\n${aiResponse.callToAction}` : ''}
         format: selectedFormat,
         status: 'generated',
         createdAt: new Date(),
-        agentId: `openai-${selectedPlatform}`,
+        agentId: null, // Sem agente específico por enquanto
         metadata: {
           hashtags: aiResponse.hashtags,
           callToAction: aiResponse.callToAction,
@@ -352,6 +356,52 @@ ${aiResponse.callToAction ? `\n\n${aiResponse.callToAction}` : ''}
                     })}
                   </div>
                 </div>
+
+                {/* Video Duration Selection - Only show when video_script is selected */}
+                {selectedFormat === 'video_script' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="videoDuration">Duração do vídeo (segundos)</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[15, 30, 45, 60, 90, 120, 180, 240].map((duration) => (
+                        <Button
+                          key={duration}
+                          variant={videoDuration === duration ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setVideoDuration(duration)}
+                          className="justify-center"
+                        >
+                          {duration}s
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Recomendado: 15-60s para reels, 60-180s para vídeos
+                    </p>
+                  </div>
+                )}
+
+                {/* Carousel Slides Selection - Only show when carousel is selected */}
+                {selectedFormat === 'carousel' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="carouselSlides">Quantidade de slides</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((slides) => (
+                        <Button
+                          key={slides}
+                          variant={carouselSlides === slides ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCarouselSlides(slides)}
+                          className="justify-center"
+                        >
+                          {slides}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Recomendado: 6-8 slides para melhor engajamento
+                    </p>
+                  </div>
+                )}
 
                 <Separator />
 
