@@ -158,8 +158,12 @@ export class DatabaseService {
   // ===== CONTEÚDOS =====
   static async getContents(): Promise<DatabaseResponse<Content[]>> {
     try {
-      console.log('Buscando conteúdos globais');
+      console.log('DatabaseService.getContents() - Iniciando busca...');
+      console.log('Buscando TODOS os conteúdos (sem filtro de usuário)');
       const { data, error } = await db.contents.getAll();
+      
+      console.log('DatabaseService.getContents() - Dados brutos do Supabase:', data);
+      console.log('DatabaseService.getContents() - Erro do Supabase:', error);
       
       if (error) {
         console.error('Erro ao buscar conteúdos:', error);
@@ -172,7 +176,7 @@ export class DatabaseService {
       }
 
       // Converter dados do Supabase para o formato da aplicação
-      const contents: Content[] = data.map(item => ({
+      const contents: Content[] = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         content: item.content,
@@ -194,10 +198,11 @@ export class DatabaseService {
         scheduled_for: item.scheduled_for
       }));
 
-      console.log('Conteúdos carregados:', contents.length);
+      console.log('DatabaseService.getContents() - Conteúdos carregados:', contents.length);
+      console.log('DatabaseService.getContents() - Retornando:', { data: contents, error: null });
       return { data: contents, error: null };
     } catch (error) {
-      console.error('Erro inesperado ao buscar conteúdos:', error);
+      console.error('DatabaseService.getContents() - Erro inesperado:', error);
       return { data: null, error };
     }
   }

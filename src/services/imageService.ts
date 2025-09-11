@@ -21,7 +21,7 @@ export interface ImageGenerationResponse {
   createdAt: Date;
 }
 
-export interface CarouselImage {
+export interface CarouselImageGeneration {
   slideNumber: number;
   description: string;
   imageUrl?: string;
@@ -66,8 +66,8 @@ export class ImageService {
   static async generateCarouselImages(
     slides: Array<{ text: string; description: string }>,
     style: 'realistic' | 'illustration' | 'minimalist' | 'vibrant' = 'vibrant'
-  ): Promise<CarouselImage[]> {
-    const carouselImages: CarouselImage[] = [];
+  ): Promise<CarouselImageGeneration[]> {
+    const carouselImages: CarouselImageGeneration[] = [];
     
     for (let i = 0; i < slides.length; i++) {
       const slide = slides[i];

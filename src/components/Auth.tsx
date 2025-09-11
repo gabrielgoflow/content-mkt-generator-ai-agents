@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
-import { useSupabase } from '@/hooks/useSupabase';
+import { supabase } from '@/config/supabase';
 
 interface AuthProps {
   onAuthSuccess?: () => void;
@@ -19,20 +19,66 @@ export function Auth({ onAuthSuccess }: AuthProps) {
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
-  const { signIn, signUp, isLoading } = useSupabase();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Funções de autenticação
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: 'Erro inesperado ao fazer login' };
+    }
+  };
+
+  const signUp = async (email: string, password: string, name: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { 
+        success: true, 
+        data,
+        message: 'Conta criada com sucesso! Verifique seu email para confirmar a conta.'
+      };
+    } catch (error) {
+      return { success: false, error: 'Erro inesperado ao criar conta' };
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+    setIsLoading(true);
 
     if (!isSignIn && password !== confirmPassword) {
       setMessage({ type: 'error', text: 'As senhas não coincidem' });
+      setIsLoading(false);
       return;
     }
 
     if (!isSignIn && !name.trim()) {
       setMessage({ type: 'error', text: 'Nome é obrigatório' });
+      setIsLoading(false);
       return;
     }
 
@@ -48,7 +94,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
       if (result.success) {
         setMessage({ 
           type: 'success', 
-          text: isSignIn ? 'Login realizado com sucesso!' : result.message || 'Conta criada com sucesso!' 
+          text: isSignIn ? 'Login realizado com sucesso!' : (result as any).message || 'Conta criada com sucesso!' 
         });
         
         // Aguardar um pouco para o listener processar a autenticação
@@ -62,6 +108,8 @@ export function Auth({ onAuthSuccess }: AuthProps) {
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Erro inesperado. Tente novamente.' });
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -17,6 +17,8 @@ export interface Content {
     estimatedEngagement?: string;
     qualityScore?: number;
   };
+  // Imagens do carrossel (temporárias, antes de serem salvas no banco)
+  carouselImages?: any[];
   // Campos do Supabase
   user_id?: string;
   agent_id?: string | null;

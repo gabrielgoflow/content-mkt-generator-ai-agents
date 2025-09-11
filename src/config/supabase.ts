@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
+// Debug: verificar configurações
+console.log('🔧 Configurações do Supabase:');
+console.log('VITE_SUPABASE_URL:', supabaseUrl);
+console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Configurada' : '❌ Não configurada');
+
 // Cliente Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -396,11 +401,32 @@ export const db = {
   // Conteúdos
   contents: {
     async getAll() {
-      const { data, error } = await supabase
-        .from('contents')
-        .select('*')
-        .order('created_at', { ascending: false });
-      return { data, error };
+      console.log('supabase.ts - Buscando TODOS os conteúdos (sem filtro de usuário)');
+      
+      try {
+        console.log('supabase.ts - Executando consulta...');
+        
+        // Adicionar timeout para evitar travamento
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout na consulta')), 3000); // 10 segundos
+        });
+        
+        const queryPromise = supabase
+          .from('contents')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+        
+        console.log('supabase.ts - Consulta concluída!');
+        console.log('supabase.ts - Dados retornados:', data);
+        console.log('supabase.ts - Erro retornado:', error);
+        
+        return { data, error };
+      } catch (err) {
+        console.error('supabase.ts - Erro na consulta:', err);
+        return { data: null, error: err };
+      }
     },
 
     async getById(id: string) {

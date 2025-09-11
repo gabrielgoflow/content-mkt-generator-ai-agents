@@ -25,7 +25,7 @@ import {
 import { Platform, Content, ContentStatus, ContentFormat } from '@/types';
 import { generateContent, ContentGenerationResponse } from '@/services/openaiService';
 import { useCanvaIntegration } from '@/services/canvaService';
-import { ImageService, CarouselImage } from '@/services/imageService';
+import { ImageService, CarouselImageGeneration } from '@/services/imageService';
 
 const platformIcons: Record<string, any> = {
   instagram: Instagram,
@@ -57,7 +57,7 @@ export function ContentGeneration({ onContentApproved }: ContentGenerationProps)
   const [videoDuration, setVideoDuration] = useState(30); // Duração do vídeo em segundos
   const [isCreatingCanva, setIsCreatingCanva] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
-  const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
+  const [carouselImages, setCarouselImages] = useState<CarouselImageGeneration[]>([]);
   const [imageGenerationProgress, setImageGenerationProgress] = useState(0);
 
   const { createProject } = useCanvaIntegration();
@@ -209,10 +209,13 @@ ${aiResponse.callToAction ? `\n\n${aiResponse.callToAction}` : ''}
         ...generatedContent,
         status: 'approved' as ContentStatus,
         approvedAt: new Date(),
+        // Incluir imagens do carrossel se existirem
+        carouselImages: carouselImages.length > 0 ? carouselImages : undefined,
       };
       onContentApproved(approvedContent);
       setGeneratedContent(null);
       setPrompt('');
+      setCarouselImages([]); // Limpar imagens após aprovação
     }
   };
 

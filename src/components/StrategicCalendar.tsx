@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,36 +13,194 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Calendar as CalendarIcon, 
-  Plus, 
   Clock, 
   AlertCircle,
   Instagram,
   Mail,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  Save,
+  X,
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
-import { Content, Platform, ScheduledPost } from '@/types';
+import { Content, Platform, ScheduledPost, CarouselImage } from '@/types';
+import { DatabaseService } from '@/services/databaseService';
 
 const platformIcons: Record<string, any> = {
   instagram: Instagram,
   email: Mail,
 };
 
+// Componente para exibir imagens do carrossel
+interface CarouselImagesDisplayProps {
+  contentId: string;
+  format: string;
+}
+
+function CarouselImagesDisplay({ contentId, format }: CarouselImagesDisplayProps) {
+  const [images, setImages] = useState<CarouselImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      if (format !== 'carousel') {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const { data, error } = await DatabaseService.getCarouselImages(contentId);
+        
+        if (error) {
+          console.error('Erro ao carregar imagens do carrossel:', error);
+          setError('Erro ao carregar imagens');
+        } else {
+          setImages(data || []);
+        }
+      } catch (err) {
+        console.error('Erro inesperado ao carregar imagens:', err);
+        setError('Erro inesperado');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImages();
+  }, [contentId, format]);
+
+  if (format !== 'carousel') {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-sm text-muted-foreground">Carregando imagens...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        <AlertCircle className="h-4 w-4 mx-auto mb-2" />
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">Nenhuma imagem encontrada para este carrossel</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center space-x-2">
+        <ImageIcon className="h-4 w-4" />
+        <span className="text-sm font-medium">Imagens do Carrossel ({images.length})</span>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {images.map((image) => (
+          <div key={image.id} className="relative group">
+            <div className="aspect-square bg-muted rounded-lg overflow-hidden border">
+              {image.image_url ? (
+                <img
+                  src={image.image_url}
+                  alt={`Slide ${image.slide_number}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              
+              {/* Placeholder quando não há imagem ou erro no carregamento */}
+              <div className={`w-full h-full flex items-center justify-center ${image.image_url ? 'hidden' : ''}`}>
+                <div className="text-center">
+                  <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    {image.status === 'generating' ? 'Gerando...' : 
+                     image.status === 'failed' ? 'Erro' : 'Sem imagem'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Badge com número do slide */}
+            <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              {image.slide_number}
+            </div>
+            
+            {/* Status badge */}
+            <div className="absolute top-2 right-2">
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${
+                  image.status === 'completed' ? 'bg-green-100 text-green-700' :
+                  image.status === 'generating' ? 'bg-yellow-100 text-yellow-700' :
+                  image.status === 'failed' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {image.status === 'completed' ? '✓' :
+                 image.status === 'generating' ? '⏳' :
+                 image.status === 'failed' ? '✗' : '⏸'}
+              </Badge>
+            </div>
+            
+            {/* Descrição no hover */}
+            {image.description && (
+              <div className="absolute inset-0 bg-black/80 text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                <p className="text-xs">{image.description}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface StrategicCalendarProps {
   approvedContent: Content[];
   allContents?: Content[]; // Adicionar todos os conteúdos para debug
   onScheduleContent: (contentId: string, date: Date) => void;
   onUnscheduleContent: (contentId: string) => void;
+  onUpdateContent?: (contentId: string, updates: Partial<Content>) => Promise<void>;
+  onCreateTestContent?: () => Promise<void>;
 }
 
-export function StrategicCalendar({ approvedContent, allContents, onScheduleContent, onUnscheduleContent }: StrategicCalendarProps) {
+export function StrategicCalendar({ approvedContent, allContents, onScheduleContent, onUnscheduleContent, onUpdateContent, onCreateTestContent }: StrategicCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all');
   const [calendarView, setCalendarView] = useState<'general' | 'platform'>('general');
+  
+  // Estados para o diálogo de visualização/edição
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedContent, setSelectedContent] = useState<Content | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState<Partial<Content>>({});
 
   // Debug: verificar conteúdos recebidos
   console.log('StrategicCalendar - Conteúdos aprovados recebidos:', approvedContent.length);
@@ -60,6 +218,53 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
       };
       setScheduledPosts([...scheduledPosts, newScheduledPost]);
       onScheduleContent(contentId, selectedDate);
+    }
+  };
+
+  // Funções para visualização e edição
+  const handleViewContent = (content: Content) => {
+    setSelectedContent(content);
+    setEditedContent({});
+    setIsEditing(false);
+    setIsDialogOpen(true);
+  };
+
+  const handleEditContent = (content: Content) => {
+    setSelectedContent(content);
+    setEditedContent({
+      title: content.title,
+      content: content.content,
+      platform: content.platform,
+      format: content.format,
+      status: content.status,
+      scheduledFor: content.scheduledFor
+    });
+    setIsEditing(true);
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveContent = async () => {
+    if (!selectedContent || !editedContent || !onUpdateContent) return;
+
+    try {
+      await onUpdateContent(selectedContent.id, editedContent);
+      console.log('Conteúdo salvo com sucesso:', selectedContent.id, editedContent);
+      setIsDialogOpen(false);
+      setSelectedContent(null);
+      setEditedContent({});
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Erro ao salvar conteúdo:', error);
+      // Aqui você pode adicionar uma notificação de erro para o usuário
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContent({});
+    setIsEditing(false);
+    if (selectedContent) {
+      setIsDialogOpen(false);
+      setSelectedContent(null);
     }
   };
 
@@ -201,20 +406,12 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
               size="sm" 
               variant="outline"
               onClick={() => {
-                // Criar conteúdo de teste
-                const testContent = {
-                  title: 'Conteúdo de Teste',
-                  content: 'Este é um conteúdo de teste para verificar se está funcionando.',
-                  platform: 'instagram' as Platform,
-                  format: 'video_script' as any,
-                  status: 'approved' as any,
-                  agentId: null,
-                  prompt: 'Teste'
-                };
-                console.log('Criando conteúdo de teste:', testContent);
+                if (onCreateTestContent) {
+                  onCreateTestContent();
+                }
               }}
             >
-              Teste
+              Criar Conteúdos de Teste
             </Button>
           )}
         </div>
@@ -619,16 +816,28 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                <Button variant="ghost" size="sm">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleViewContent(content)}
+                                  title="Visualizar conteúdo"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleEditContent(content)}
+                                  title="Editar conteúdo"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
                                   onClick={() => onUnscheduleContent(content.id)}
+                                  title="Desagendar conteúdo"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -720,6 +929,222 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo de Visualização/Edição de Conteúdo */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>
+                {isEditing ? 'Editar Conteúdo' : 'Visualizar Conteúdo'}
+              </span>
+              <div className="flex items-center space-x-2">
+                {isEditing ? (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveContent}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => selectedContent && handleEditContent(selectedContent)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedContent && (
+            <div className="space-y-6">
+              {/* Informações do Conteúdo */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título</Label>
+                  {isEditing ? (
+                    <Input
+                      id="title"
+                      value={editedContent.title || ''}
+                      onChange={(e) => setEditedContent(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Digite o título do conteúdo"
+                    />
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md border">
+                      {selectedContent.title}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="platform">Plataforma</Label>
+                  {isEditing ? (
+                    <Select
+                      value={editedContent.platform || ''}
+                      onValueChange={(value) => setEditedContent(prev => ({ ...prev, platform: value as Platform }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a plataforma" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="instagram">Instagram</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md border flex items-center space-x-2">
+                      <PlatformIcon platform={selectedContent.platform} />
+                      <span className="capitalize">{selectedContent.platform}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="format">Formato</Label>
+                  {isEditing ? (
+                    <Select
+                      value={editedContent.format || ''}
+                      onValueChange={(value) => setEditedContent(prev => ({ ...prev, format: value as any }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o formato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="video_script">Roteiro de Vídeo</SelectItem>
+                        <SelectItem value="carousel">Carrossel</SelectItem>
+                        <SelectItem value="email_newsletter">Newsletter</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md border">
+                      {selectedContent.format === 'video_script' && 'Roteiro de Vídeo'}
+                      {selectedContent.format === 'carousel' && 'Carrossel'}
+                      {selectedContent.format === 'email_newsletter' && 'Newsletter'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  {isEditing ? (
+                    <Select
+                      value={editedContent.status || ''}
+                      onValueChange={(value) => setEditedContent(prev => ({ ...prev, status: value as any }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Rascunho</SelectItem>
+                        <SelectItem value="generated">Gerado</SelectItem>
+                        <SelectItem value="approved">Aprovado</SelectItem>
+                        <SelectItem value="scheduled">Agendado</SelectItem>
+                        <SelectItem value="published">Publicado</SelectItem>
+                        <SelectItem value="rejected">Rejeitado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="p-3 bg-gray-50 rounded-md border">
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          selectedContent.status === 'approved' ? 'bg-green-100 text-green-700' :
+                          selectedContent.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                          selectedContent.status === 'published' ? 'bg-purple-100 text-purple-700' :
+                          selectedContent.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-700'
+                        }
+                      >
+                        {selectedContent.status === 'draft' && 'Rascunho'}
+                        {selectedContent.status === 'generated' && 'Gerado'}
+                        {selectedContent.status === 'approved' && 'Aprovado'}
+                        {selectedContent.status === 'scheduled' && 'Agendado'}
+                        {selectedContent.status === 'published' && 'Publicado'}
+                        {selectedContent.status === 'rejected' && 'Rejeitado'}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Conteúdo Principal */}
+              <div className="space-y-2">
+                <Label htmlFor="content">Conteúdo</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="content"
+                    value={editedContent.content || ''}
+                    onChange={(e) => setEditedContent(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Digite o conteúdo"
+                    rows={10}
+                    className="resize-none"
+                  />
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-md border max-h-96 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap font-sans text-sm">
+                      {selectedContent.content}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              {/* Imagens do Carrossel */}
+              {selectedContent.format === 'carousel' && (
+                <div className="space-y-2">
+                  <CarouselImagesDisplay 
+                    contentId={selectedContent.id} 
+                    format={selectedContent.format} 
+                  />
+                </div>
+              )}
+
+              {/* Informações Adicionais */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div>
+                  <strong>Criado em:</strong> {selectedContent.createdAt.toLocaleDateString('pt-BR')}
+                </div>
+                {selectedContent.approvedAt && (
+                  <div>
+                    <strong>Aprovado em:</strong> {selectedContent.approvedAt.toLocaleDateString('pt-BR')}
+                  </div>
+                )}
+                {selectedContent.scheduledFor && (
+                  <div>
+                    <strong>Agendado para:</strong> {selectedContent.scheduledFor.toLocaleDateString('pt-BR')}
+                  </div>
+                )}
+              </div>
+
+              {/* Metadata */}
+              {selectedContent.metadata && (
+                <div className="space-y-2">
+                  <Label>Metadados</Label>
+                  <div className="p-4 bg-gray-50 rounded-md border">
+                    <pre className="text-sm">
+                      {JSON.stringify(selectedContent.metadata, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

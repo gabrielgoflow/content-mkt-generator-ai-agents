@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,156 @@ import {
   Loader2,
   CalendarDays,
   FileText,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon
 } from 'lucide-react';
-import { Content } from '@/types';
+import { Content, CarouselImage } from '@/types';
 import { ReviewService, ReviewResponse } from '@/services/reviewService';
+import { DatabaseService } from '@/services/databaseService';
 
 interface ContentReviewProps {
   approvedContent: Content[];
+}
+
+// Componente para exibir imagens do carrossel
+interface CarouselImagesDisplayProps {
+  contentId: string;
+  format: string;
+}
+
+function CarouselImagesDisplay({ contentId, format }: CarouselImagesDisplayProps) {
+  const [images, setImages] = useState<CarouselImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      if (format !== 'carousel') {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const { data, error } = await DatabaseService.getCarouselImages(contentId);
+        
+        if (error) {
+          console.error('Erro ao carregar imagens do carrossel:', error);
+          setError('Erro ao carregar imagens');
+        } else {
+          setImages(data || []);
+        }
+      } catch (err) {
+        console.error('Erro inesperado ao carregar imagens:', err);
+        setError('Erro inesperado');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImages();
+  }, [contentId, format]);
+
+  if (format !== 'carousel') {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <span className="text-sm text-muted-foreground">Carregando imagens...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-center text-red-600">
+        <AlertTriangle className="h-4 w-4 mx-auto mb-2" />
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">Nenhuma imagem encontrada para este carrossel</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center space-x-2">
+        <ImageIcon className="h-4 w-4" />
+        <span className="text-sm font-medium">Imagens do Carrossel ({images.length})</span>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {images.map((image, index) => (
+          <div key={image.id} className="relative group">
+            <div className="aspect-square bg-muted rounded-lg overflow-hidden border">
+              {image.image_url ? (
+                <img
+                  src={image.image_url}
+                  alt={`Slide ${image.slide_number}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              
+              {/* Placeholder quando não há imagem ou erro no carregamento */}
+              <div className={`w-full h-full flex items-center justify-center ${image.image_url ? 'hidden' : ''}`}>
+                <div className="text-center">
+                  <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    {image.status === 'generating' ? 'Gerando...' : 
+                     image.status === 'failed' ? 'Erro' : 'Sem imagem'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Badge com número do slide */}
+            <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              {image.slide_number}
+            </div>
+            
+            {/* Status badge */}
+            <div className="absolute top-2 right-2">
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${
+                  image.status === 'completed' ? 'bg-green-100 text-green-700' :
+                  image.status === 'generating' ? 'bg-yellow-100 text-yellow-700' :
+                  image.status === 'failed' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {image.status === 'completed' ? '✓' :
+                 image.status === 'generating' ? '⏳' :
+                 image.status === 'failed' ? '✗' : '⏸'}
+              </Badge>
+            </div>
+            
+            {/* Descrição no hover */}
+            {image.description && (
+              <div className="absolute inset-0 bg-black/80 text-white p-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                <p className="text-xs">{image.description}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function ContentReview({ approvedContent }: ContentReviewProps) {
@@ -382,6 +525,15 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
                                       {content.createdAt.toLocaleDateString('pt-BR')}
                                     </span>
                                   </div>
+                                  {/* Exibir imagens do carrossel se for formato carrossel */}
+                                  {content.format === 'carousel' && (
+                                    <div className="mt-3">
+                                      <CarouselImagesDisplay 
+                                        contentId={content.id} 
+                                        format={content.format} 
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                                 {selectedContent?.id === content.id && (
                                   <div className="ml-2">
@@ -480,6 +632,15 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
                                         {content.createdAt.toLocaleDateString('pt-BR')}
                                       </span>
                                     </div>
+                                    {/* Exibir imagens do carrossel se for formato carrossel */}
+                                    {content.format === 'carousel' && (
+                                      <div className="mt-3">
+                                        <CarouselImagesDisplay 
+                                          contentId={content.id} 
+                                          format={content.format} 
+                                        />
+                                      </div>
+                                    )}
                                   </div>
                                   {isSelected && (
                                     <div className="ml-2">
@@ -636,6 +797,16 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
                               {result.coherenceScore}%
                             </Badge>
                           </div>
+                          
+                          {/* Exibir imagens do carrossel se for formato carrossel */}
+                          {content?.format === 'carousel' && (
+                            <div className="mb-3">
+                              <CarouselImagesDisplay 
+                                contentId={content.id} 
+                                format={content.format} 
+                              />
+                            </div>
+                          )}
                           
                           {result.issues.length > 0 && (
                             <div className="mb-2">
