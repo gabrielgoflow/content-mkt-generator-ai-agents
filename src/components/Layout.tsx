@@ -76,10 +76,10 @@ export function Layout({ children, currentView, onViewChange, onSignOut }: Layou
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button size="sm">
+            {/* <Button size="sm">
               <Plus className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Novo Agente</span>
-            </Button>
+            </Button> */}
           </div>
         </div>
       </header>

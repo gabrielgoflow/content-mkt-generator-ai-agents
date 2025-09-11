@@ -64,14 +64,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
   };
 
   const getContentForDate = (date: Date, platform?: Platform | 'all') => {
-    // Incluir posts agendados da tabela scheduled_posts
-    const scheduledFromTable = scheduledPosts.filter(post => {
-      const isDateMatch = post.scheduledFor.toDateString() === date.toDateString();
-      const isPlatformMatch = platform === 'all' || !platform ? true : post.platform === platform;
-      return isDateMatch && isPlatformMatch;
-    });
-
-    // Também incluir conteúdos com status 'scheduled' que têm scheduledFor definido
+    // Primeiro, obter todos os conteúdos com status 'scheduled' que têm scheduledFor definido
     const scheduledFromContent = approvedContent.filter(content => {
       if (content.status !== 'scheduled' || !content.scheduledFor) return false;
       const isDateMatch = content.scheduledFor.toDateString() === date.toDateString();
@@ -89,7 +82,18 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
       createdAt: content.createdAt
     }));
 
-    return [...scheduledFromTable, ...scheduledFromContentAsPosts];
+    // Incluir posts agendados da tabela scheduled_posts que NÃO estão no approvedContent
+    const scheduledFromTable = scheduledPosts.filter(post => {
+      const isDateMatch = post.scheduledFor.toDateString() === date.toDateString();
+      const isPlatformMatch = platform === 'all' || !platform ? true : post.platform === platform;
+      // Verificar se este post não está já representado no approvedContent
+      const isNotInApprovedContent = !approvedContent.some(content => 
+        content.id === post.contentId && content.status === 'scheduled'
+      );
+      return isDateMatch && isPlatformMatch && isNotInApprovedContent;
+    });
+
+    return [...scheduledFromContentAsPosts, ...scheduledFromTable];
   };
 
   const getApprovedContentForDate = (_date: Date, platform?: Platform | 'all') => {
@@ -105,6 +109,37 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
   const getPlatforms = () => {
     const platforms = [...new Set(approvedContent.map(content => content.platform))];
     return platforms;
+  };
+
+  // Função para obter todos os conteúdos agendados (unificando approvedContent + scheduledPosts)
+  const getAllScheduledPosts = (platform?: Platform | 'all') => {
+    // Obter conteúdos com status 'scheduled' do approvedContent
+    const scheduledFromContent = approvedContent.filter(content => {
+      if (content.status !== 'scheduled' || !content.scheduledFor) return false;
+      const isPlatformMatch = platform === 'all' || !platform ? true : content.platform === platform;
+      return isPlatformMatch;
+    });
+
+    // Converter para formato ScheduledPost
+    const scheduledFromContentAsPosts = scheduledFromContent.map(content => ({
+      id: `content-${content.id}`,
+      contentId: content.id,
+      platform: content.platform,
+      scheduledFor: content.scheduledFor!,
+      status: 'scheduled' as const,
+      createdAt: content.createdAt
+    }));
+
+    // Obter posts do estado local que não estão no approvedContent
+    const scheduledFromTable = scheduledPosts.filter(post => {
+      const isPlatformMatch = platform === 'all' || !platform ? true : post.platform === platform;
+      const isNotInApprovedContent = !approvedContent.some(content => 
+        content.id === post.contentId && content.status === 'scheduled'
+      );
+      return isPlatformMatch && isNotInApprovedContent;
+    });
+
+    return [...scheduledFromContentAsPosts, ...scheduledFromTable];
   };
 
   const getCalendarModifiers = (platform?: Platform | 'all') => {
@@ -157,10 +192,10 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
             <CalendarIcon className="h-3 w-3 mr-1" />
             {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </Badge>
-          <Button size="sm">
+          {/* <Button size="sm">
             <Plus className="h-4 w-4 mr-2" />
             Nova Publicação
-          </Button>
+          </Button> */}
           {process.env.NODE_ENV === 'development' && (
             <Button 
               size="sm" 
@@ -537,7 +572,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
               </div>
             </CardHeader>
             <CardContent>
-              {scheduledPosts.filter(post => selectedPlatform === 'all' || post.platform === selectedPlatform).length > 0 ? (
+              {getAllScheduledPosts(selectedPlatform).length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -549,8 +584,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scheduledPosts
-                      .filter(post => selectedPlatform === 'all' || post.platform === selectedPlatform)
+                    {getAllScheduledPosts(selectedPlatform)
                       .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
                       .map((post) => {
                         const content = approvedContent.find(c => c.id === post.contentId);
@@ -591,7 +625,11 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
                                 <Button variant="ghost" size="sm">
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => onUnscheduleContent(content.id)}
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -625,7 +663,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="text-center p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{scheduledPosts.length}</div>
+                  <div className="text-2xl font-bold text-blue-600">{getAllScheduledPosts().length}</div>
                   <div className="text-sm text-muted-foreground">Total Agendados</div>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
@@ -634,13 +672,13 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.round((scheduledPosts.length / approvedContent.length) * 100)}%
+                    {approvedContent.length > 0 ? Math.round((getAllScheduledPosts().length / approvedContent.length) * 100) : 0}%
                   </div>
                   <div className="text-sm text-muted-foreground">Taxa de Agendamento</div>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">
-                    {approvedContent.length - scheduledPosts.length}
+                    {approvedContent.length - getAllScheduledPosts().length}
                   </div>
                   <div className="text-sm text-muted-foreground">Pendentes</div>
                 </div>
