@@ -362,7 +362,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
   return (
     <div className="space-y-6">
       {/* Debug Info */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* {process.env.NODE_ENV === 'development' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <h3 className="font-semibold text-yellow-800 mb-2">Debug Info</h3>
           <div className="text-sm text-yellow-700 space-y-1">
@@ -384,7 +384,7 @@ export function StrategicCalendar({ approvedContent, allContents, onScheduleCont
             </p>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Header */}
       <div className="flex items-center justify-between">

@@ -864,45 +864,283 @@ ${aiResponse.callToAction ? `\n\n${aiResponse.callToAction}` : ''}
                   {/* Preview em Diferentes Dispositivos */}
                   <div className="space-y-4">
                     <h4 className="font-semibold">Preview em Diferentes Dispositivos</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {/* Mobile Preview */}
-                      <div className="border rounded-lg p-3">
-                        <h5 className="font-medium mb-2 text-sm">Mobile</h5>
-                        <div className="bg-gray-100 rounded-lg p-2 text-xs">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-3 h-3 bg-primary rounded-full"></div>
-                            <span className="font-semibold text-xs">Content AI</span>
-                          </div>
-                          <div className="text-xs whitespace-pre-line">
-                            {generatedContent.content.substring(0, 80)}...
+                      <div className="flex flex-col items-center">
+                        <h5 className="font-medium mb-3 text-sm">Mobile</h5>
+                        <div className="relative">
+                          {/* Frame do iPhone */}
+                          <div className="w-48 h-96 bg-black rounded-[2.5rem] p-2 shadow-2xl">
+                            <div className="w-full h-full bg-white rounded-[2rem] overflow-hidden relative">
+                              {/* Notch */}
+                              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-6 bg-black rounded-b-2xl z-10"></div>
+                              
+                              {/* Status Bar */}
+                              <div className="flex justify-between items-center px-4 pt-8 pb-2 text-xs font-semibold">
+                                <span>9:41</span>
+                                <div className="flex items-center space-x-1">
+                                  <div className="w-4 h-2 border border-black rounded-sm">
+                                    <div className="w-3 h-1.5 bg-black rounded-sm m-0.5"></div>
+                                  </div>
+                                  <div className="w-4 h-2 border border-black rounded-sm">
+                                    <div className="w-3 h-1.5 bg-black rounded-sm m-0.5"></div>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* App Content */}
+                              <div className="px-4 py-2 h-full overflow-y-auto">
+                                <div className="bg-white border-b pb-3 mb-3">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                                      <span className="text-primary-foreground text-xs font-bold">AI</span>
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-sm">Content AI</p>
+                                      <p className="text-xs text-muted-foreground">Agora</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Carrossel Mobile */}
+                                  {selectedFormat === 'carousel' && carouselImages.length > 0 ? (
+                                    <div className="space-y-2">
+                                      <div className="text-xs font-semibold text-muted-foreground mb-2">
+                                        📱 CARROSSEL - {carouselImages.length} SLIDES
+                                      </div>
+                                      {carouselImages.map((carouselImage) => (
+                                        <div key={carouselImage.slideNumber} className="border rounded-lg p-2">
+                                          <div className="text-xs font-semibold mb-1">
+                                            Slide {carouselImage.slideNumber}:
+                                          </div>
+                                          {carouselImage.imageUrl ? (
+                                            <img 
+                                              src={carouselImage.imageUrl} 
+                                              alt={`Slide ${carouselImage.slideNumber}`}
+                                              className="w-full h-20 object-cover rounded mb-1"
+                                            />
+                                          ) : (
+                                            <div className="w-full h-20 bg-muted rounded flex items-center justify-center mb-1">
+                                              <span className="text-xs text-muted-foreground">Imagem {carouselImage.slideNumber}</span>
+                                            </div>
+                                          )}
+                                          <div className="text-xs text-muted-foreground">
+                                            {carouselImage.description?.substring(0, 60)}...
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs whitespace-pre-line leading-relaxed">
+                                      {generatedContent.content.substring(0, 200)}
+                                      {generatedContent.content.length > 200 && '...'}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Mobile Actions */}
+                                  <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                                    <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                                      <span>👍 12</span>
+                                      <span>💬 3</span>
+                                      <span>🔄 1</span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      📤
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                       
                       {/* Desktop Preview */}
-                      <div className="border rounded-lg p-3">
-                        <h5 className="font-medium mb-2 text-sm">Desktop</h5>
-                        <div className="bg-gray-100 rounded-lg p-2 text-sm">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-4 h-4 bg-primary rounded-full"></div>
-                            <span className="font-semibold text-sm">Content AI</span>
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {generatedContent.content.substring(0, 120)}...
+                      <div className="flex flex-col items-center">
+                        <h5 className="font-medium mb-3 text-sm">Desktop</h5>
+                        <div className="relative">
+                          {/* Frame do Desktop */}
+                          <div className="w-80 h-64 bg-gray-800 rounded-lg p-2 shadow-2xl">
+                            <div className="w-full h-full bg-white rounded-md overflow-hidden relative">
+                              {/* Browser Header */}
+                              <div className="bg-gray-100 px-3 py-2 flex items-center space-x-2 border-b">
+                                <div className="flex space-x-1">
+                                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                </div>
+                                <div className="flex-1 bg-white rounded px-2 py-1 text-xs">
+                                  content-ai.com/post/123
+                                </div>
+                              </div>
+                              
+                              {/* Desktop Content */}
+                              <div className="p-4 h-full overflow-y-auto">
+                                <div className="max-w-2xl">
+                                  <div className="flex items-center space-x-3 mb-4">
+                                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                                      <span className="text-primary-foreground text-sm font-bold">AI</span>
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold">Content AI</p>
+                                      <p className="text-sm text-muted-foreground">2 horas atrás</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Carrossel Desktop */}
+                                  {selectedFormat === 'carousel' && carouselImages.length > 0 ? (
+                                    <div className="space-y-3 mb-4">
+                                      <div className="text-sm font-semibold text-muted-foreground">
+                                        🖥️ CARROSSEL - {carouselImages.length} SLIDES
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {carouselImages.map((carouselImage) => (
+                                          <div key={carouselImage.slideNumber} className="border rounded-lg p-2">
+                                            <div className="text-xs font-semibold mb-1">
+                                              Slide {carouselImage.slideNumber}:
+                                            </div>
+                                            {carouselImage.imageUrl ? (
+                                              <img 
+                                                src={carouselImage.imageUrl} 
+                                                alt={`Slide ${carouselImage.slideNumber}`}
+                                                className="w-full h-16 object-cover rounded mb-1"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-16 bg-muted rounded flex items-center justify-center mb-1">
+                                                <span className="text-xs text-muted-foreground">Imagem {carouselImage.slideNumber}</span>
+                                              </div>
+                                            )}
+                                            <div className="text-xs text-muted-foreground">
+                                              {carouselImage.description?.substring(0, 40)}...
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm whitespace-pre-line leading-relaxed mb-4">
+                                      {generatedContent.content.substring(0, 300)}
+                                      {generatedContent.content.length > 300 && '...'}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Desktop Actions */}
+                                  <div className="flex items-center justify-between pt-3 border-t">
+                                    <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+                                      <span className="flex items-center space-x-1">
+                                        <span>👍</span>
+                                        <span>24</span>
+                                      </span>
+                                      <span className="flex items-center space-x-1">
+                                        <span>💬</span>
+                                        <span>8</span>
+                                      </span>
+                                      <span className="flex items-center space-x-1">
+                                        <span>🔄</span>
+                                        <span>3</span>
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      📤 Compartilhar
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                       
                       {/* Tablet Preview */}
-                      <div className="border rounded-lg p-3">
-                        <h5 className="font-medium mb-2 text-sm">Tablet</h5>
-                        <div className="bg-gray-100 rounded-lg p-2 text-sm">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-4 h-4 bg-primary rounded-full"></div>
-                            <span className="font-semibold text-sm">Content AI</span>
-                          </div>
-                          <div className="text-sm whitespace-pre-line">
-                            {generatedContent.content.substring(0, 100)}...
+                      <div className="flex flex-col items-center">
+                        <h5 className="font-medium mb-3 text-sm">Tablet</h5>
+                        <div className="relative">
+                          {/* Frame do iPad */}
+                          <div className="w-64 h-80 bg-gray-700 rounded-2xl p-3 shadow-2xl">
+                            <div className="w-full h-full bg-white rounded-xl overflow-hidden relative">
+                              {/* Home Indicator */}
+                              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-400 rounded-full"></div>
+                              
+                              {/* Status Bar */}
+                              <div className="flex justify-between items-center px-4 pt-4 pb-2 text-sm font-semibold">
+                                <span>9:41</span>
+                                <div className="flex items-center space-x-1">
+                                  <div className="w-6 h-3 border border-black rounded-sm">
+                                    <div className="w-5 h-2.5 bg-black rounded-sm m-0.5"></div>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Tablet Content */}
+                              <div className="px-4 py-2 h-full overflow-y-auto">
+                                <div className="bg-white">
+                                  <div className="flex items-center space-x-3 mb-3">
+                                    <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                                      <span className="text-primary-foreground text-sm font-bold">AI</span>
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-sm">Content AI</p>
+                                      <p className="text-xs text-muted-foreground">1 hora atrás</p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Carrossel Tablet */}
+                                  {selectedFormat === 'carousel' && carouselImages.length > 0 ? (
+                                    <div className="space-y-2 mb-3">
+                                      <div className="text-sm font-semibold text-muted-foreground">
+                                        📱 CARROSSEL - {carouselImages.length} SLIDES
+                                      </div>
+                                      {carouselImages.map((carouselImage) => (
+                                        <div key={carouselImage.slideNumber} className="border rounded-lg p-2">
+                                          <div className="text-xs font-semibold mb-1">
+                                            Slide {carouselImage.slideNumber}:
+                                          </div>
+                                          {carouselImage.imageUrl ? (
+                                            <img 
+                                              src={carouselImage.imageUrl} 
+                                              alt={`Slide ${carouselImage.slideNumber}`}
+                                              className="w-full h-18 object-cover rounded mb-1"
+                                            />
+                                          ) : (
+                                            <div className="w-full h-18 bg-muted rounded flex items-center justify-center mb-1">
+                                              <span className="text-xs text-muted-foreground">Imagem {carouselImage.slideNumber}</span>
+                                            </div>
+                                          )}
+                                          <div className="text-xs text-muted-foreground">
+                                            {carouselImage.description?.substring(0, 50)}...
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm whitespace-pre-line leading-relaxed mb-3">
+                                      {generatedContent.content.substring(0, 250)}
+                                      {generatedContent.content.length > 250 && '...'}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Tablet Actions */}
+                                  <div className="flex items-center justify-between pt-3 border-t">
+                                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                      <span className="flex items-center space-x-1">
+                                        <span>👍</span>
+                                        <span>18</span>
+                                      </span>
+                                      <span className="flex items-center space-x-1">
+                                        <span>💬</span>
+                                        <span>5</span>
+                                      </span>
+                                      <span className="flex items-center space-x-1">
+                                        <span>🔄</span>
+                                        <span>2</span>
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      📤
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

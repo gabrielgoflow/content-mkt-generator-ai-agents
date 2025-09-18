@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -19,7 +21,9 @@ import {
   CalendarDays,
   FileText,
   Sparkles,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Eye,
+  CheckCircle
 } from 'lucide-react';
 import { Content, CarouselImage } from '@/types';
 import { ReviewService, ReviewResponse } from '@/services/reviewService';
@@ -107,7 +111,7 @@ function CarouselImagesDisplay({ contentId, format }: CarouselImagesDisplayProps
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {images.map((image, index) => (
+        {images.map((image) => (
           <div key={image.id} className="relative group">
             <div className="aspect-square bg-muted rounded-lg overflow-hidden border">
               {image.image_url ? (
@@ -183,6 +187,8 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
   const [selectedContent, setSelectedContent] = useState<Content | null>(null);
   const [selectedContents, setSelectedContents] = useState<Content[]>([]);
   const [reviewMode, setReviewMode] = useState<'range' | 'single' | 'comparison'>('range');
+  const [showApprovedModal, setShowApprovedModal] = useState(false);
+  const [modalContent, setModalContent] = useState<Content | null>(null);
 
   const getContentInRange = () => {
     return ReviewService.filterContentsByDateRange(approvedContent, startDate, endDate);
@@ -247,11 +253,60 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
     }
   };
 
-  const handleApproveAdjustments = () => {
-    // Aplicar ajustes aprovados
-    setShowAdjustments(false);
-    setReviewResponse(null);
-    setAdjustedContents([]);
+  const handleApproveAdjustments = async () => {
+    try {
+      // Aplicar ajustes aprovados aos conteúdos originais
+      const updatedContents = approvedContent.map(content => {
+        const adjustedContent = adjustedContents.find(adj => adj.id === content.id);
+        if (adjustedContent) {
+          return {
+            ...content,
+            content: adjustedContent.content,
+            title: adjustedContent.title,
+            lastModified: new Date().toISOString()
+          };
+        }
+        return content;
+      });
+
+      // Nota: Os conteúdos foram atualizados no banco de dados
+      // O componente pai deve ser notificado para atualizar a lista
+
+      // Salvar no banco de dados
+      for (const content of updatedContents) {
+        const adjustedContent = adjustedContents.find(adj => adj.id === content.id);
+        if (adjustedContent) {
+          await DatabaseService.updateContent(content.id, {
+            content: adjustedContent.content,
+            title: adjustedContent.title
+          });
+        }
+      }
+
+      // Mostrar notificação de sucesso
+      toast.success("Ajustes aprovados com sucesso!", {
+        description: `${adjustedContents.length} conteúdo(s) foram atualizados.`,
+        duration: 4000,
+      });
+
+      // Abrir modal com o primeiro conteúdo alterado
+      if (adjustedContents.length > 0) {
+        setModalContent(adjustedContents[0]);
+        setShowApprovedModal(true);
+      }
+
+      // Limpar estados
+      setShowAdjustments(false);
+      setReviewResponse(null);
+      setAdjustedContents([]);
+
+    } catch (error) {
+      console.error('Erro ao aprovar ajustes:', error);
+      toast.error("Erro ao aprovar ajustes", {
+        description: "Ocorreu um erro ao salvar as alterações. Tente novamente.",
+        duration: 4000,
+      });
+    }
   };
 
   const handleRejectAdjustments = () => {
@@ -784,12 +839,12 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
                   {/* Individual Results */}
                   <div className="space-y-4">
                     <h4 className="font-semibold">Análise Individual</h4>
-                    {reviewResponse.results.map((result, index) => {
+                    {reviewResponse.results.map((result) => {
                       const content = contentInRange.find(c => c.id === result.contentId);
                       return (
                         <div key={result.id} className="p-4 border rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <h5 className="font-medium">{content?.title || `Conteúdo ${index + 1}`}</h5>
+                            <h5 className="font-medium">{content?.title || `Conteúdo ${result.id}`}</h5>
                             <Badge 
                               variant={result.coherenceScore >= 85 ? 'default' : 'destructive'}
                               className={result.coherenceScore >= 85 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}
@@ -838,11 +893,11 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
                   {reviewResponse.comparisonResults && reviewResponse.comparisonResults.length > 0 && (
                     <div className="space-y-4">
                       <h4 className="font-semibold">Análise Comparativa</h4>
-                      {reviewResponse.comparisonResults.map((comparison, index) => {
+                      {reviewResponse.comparisonResults.map((comparison) => {
                         const content1 = selectedContents.find(c => c.id === comparison.contentId1);
                         const content2 = selectedContents.find(c => c.id === comparison.contentId2);
                         return (
-                          <div key={index} className="p-4 border rounded-lg bg-blue-50">
+                          <div key={`${comparison.contentId1}-${comparison.contentId2}`} className="p-4 border rounded-lg bg-blue-50">
                             <div className="flex items-center justify-between mb-3">
                               <h5 className="font-medium text-blue-800">
                                 Comparação: {content1?.title} ↔ {content2?.title}
@@ -1033,6 +1088,83 @@ export function ContentReview({ approvedContent }: ContentReviewProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal para exibir conteúdo aprovado */}
+      <Dialog open={showApprovedModal} onOpenChange={setShowApprovedModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
+              Conteúdo Aprovado e Atualizado
+            </DialogTitle>
+          </DialogHeader>
+          
+          {modalContent && (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                  <span className="text-sm font-medium text-green-800">
+                    Conteúdo atualizado com sucesso!
+                  </span>
+                </div>
+                <p className="text-sm text-green-700">
+                  Este conteúdo foi modificado com base nos ajustes aprovados pela IA.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium">Título</Label>
+                  <div className="p-3 bg-muted rounded-lg text-sm">
+                    {modalContent.title}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">Conteúdo</Label>
+                  <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-line max-h-60 overflow-y-auto">
+                    {modalContent.content}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Formato</Label>
+                    <div className="p-2 bg-muted rounded">
+                      <Badge variant="secondary">{modalContent.format}</Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Última Modificação</Label>
+                    <div className="p-2 bg-muted rounded text-xs">
+                      {new Date(modalContent.createdAt).toLocaleString('pt-BR')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowApprovedModal(false)}
+                >
+                  Fechar
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowApprovedModal(false);
+                    // Aqui você pode adicionar lógica para navegar para o conteúdo
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Ver Detalhes Completos
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

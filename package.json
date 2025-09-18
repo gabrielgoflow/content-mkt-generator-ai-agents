@@ -304,8 +304,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:prod": "tsc && vite build --mode production",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:netlify": "npm run build && npx netlify deploy --prod --dir=dist",
+    "deploy:vercel": "npm run build && npx vercel --prod",
+    "deploy:github": "npm run build && npx gh-pages -d dist",
+    "analyze": "npm run build && npx vite-bundle-analyzer dist"
   },
   "keywords": [],
   "author": "",
